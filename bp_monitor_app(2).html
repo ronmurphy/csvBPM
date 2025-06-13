@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Pressure Monitor Dashboard</title>
+    
+    <!-- Material Design Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js for beautiful graphs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <!-- Papaparse for robust CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            padding: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .card-header h1 {
+            font-size: 28px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .card-header p {
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        /* File Upload Area */
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 16px;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .upload-subtext {
+            color: #666;
+            font-size: 14px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 20px 0;
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: #f5f5f5;
+            padding: 16px;
+            text-align: left;
+            font-weight: 500;
+            color: #333;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:hover {
+            background: #f8f9ff;
+        }
+
+        /* Statistics Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Hidden class for showing/hiding sections */
+        .hidden {
+            display: none;
+        }
+
+        /* Search functionality styles */
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .search-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .clear-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .clear-btn:hover {
+            background: #d32f2f;
+        }
+
+        /* Clickable table rows */
+        .table-container tbody tr {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .table-container tbody tr:hover {
+            background: #e3f2fd !important;
+        }
+
+        .table-container tbody tr.highlighted {
+            background: #bbdefb !important;
+            animation: highlight 2s ease-out;
+        }
+
+        /* Export functionality styles */
+        .export-container {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            border: 1px solid #e0e7ff;
+        }
+
+        .export-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .export-btn:hover {
+            background: #45a049;
+        }
+
+        .merge-info {
+            background: #e3f2fd;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .merge-info.success {
+            background: #e8f5e8;
+            border-left-color: #4caf50;
+        }
+
+        .merge-info.warning {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 10px;
+            }
+            
+            .card-content {
+                padding: 16px;
+            }
+            
+            .chart-container {
+                height: 300px;
+            }
+        }
+
+        /* Loading spinner */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header Card -->
+        <div class="card">
+            <div class="card-header">
+                <h1><i class="material-icons" style="vertical-align: middle; margin-right: 8px;">favorite</i>Blood Pressure Monitor</h1>
+                <p>Upload your CSV file to visualize and analyze your blood pressure data</p>
+            </div>
+        </div>
+
+        <!-- Upload Card -->
+        <div class="card">
+            <div class="card-content">
+                <!-- Merge information display -->
+                <div id="mergeInfo" class="merge-info hidden">
+                    <strong>Data Merge Status:</strong>
+                    <div id="mergeDetails"></div>
+                </div>
+                
+                <div class="upload-area" id="uploadArea">
+                    <i class="material-icons upload-icon">cloud_upload</i>
+                    <div class="upload-text">Drop your CSV file here or click to browse</div>
+                    <div class="upload-subtext">Supports CSV files from blood pressure monitors - new data will be merged with existing records</div>
+                    <input type="file" id="fileInput" accept=".csv" />
+                </div>
+                
+                <!-- Export functionality -->
+                <div id="exportSection" class="export-container hidden">
+                    <i class="material-icons" style="color: #4caf50;">save_alt</i>
+                    <span>Export your complete dataset:</span>
+                    <button class="export-btn" onclick="exportToCSV()">
+                        <i class="material-icons" style="font-size: 18px;">download</i>
+                        Download CSV
+                    </button>
+                    <span style="font-size: 12px; color: #666;">Save this file to import on other devices</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards (hidden initially) -->
+        <div id="statsSection" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="avgSystolic">--</div>
+                    <div class="stat-label">Avg Systolic</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgDiastolic">--</div>
+                    <div class="stat-label">Avg Diastolic</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgPulse">--</div>
+                    <div class="stat-label">Avg Pulse</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalReadings">--</div>
+                    <div class="stat-label">Total Readings</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart Card (hidden initially) -->
+        <div id="chartSection" class="card hidden">
+            <div class="card-content">
+                <h2 style="margin-bottom: 20px; color: #333;">
+                    <i class="material-icons" style="vertical-align: middle; margin-right: 8px;">timeline</i>
+                    Blood Pressure Trends
+                </h2>
+                
+                <!-- Search functionality -->
+                <div class="search-container">
+                    <input type="date" id="dateSearch" class="search-input" placeholder="Search by date...">
+                    <button class="search-btn" onclick="searchByDate()">
+                        <i class="material-icons" style="font-size: 18px;">search</i>
+                        Find
+                    </button>
+                    <button class="clear-btn" onclick="clearSearch()">Clear</button>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="bpChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table Card (hidden initially) -->
+        <div id="tableSection" class="card hidden">
+            <div class="card-content">
+                <h2 style="margin-bottom: 20px; color: #333;">
+                    <i class="material-icons" style="vertical-align: middle; margin-right: 8px;">table_chart</i>
+                    Detailed Readings
+                </h2>
+                <div class="table-container">
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Systolic</th>
+                                <th>Diastolic</th>
+                                <th>Pulse</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables to store our data and chart
+        let bloodPressureData = [];
+        let chart = null;
+        let originalDataCount = 0; // Track data before each import
+
+        // Get DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const statsSection = document.getElementById('statsSection');
+        const chartSection = document.getElementById('chartSection');
+        const tableSection = document.getElementById('tableSection');
+        const exportSection = document.getElementById('exportSection');
+        const mergeInfo = document.getElementById('mergeInfo');
+        const mergeDetails = document.getElementById('mergeDetails');
+
+        // Set up event listeners when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // File input change event
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Upload area click event
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            // Drag and drop events
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'text/csv') {
+                processCSVFile(file);
+            } else {
+                alert('Please select a valid CSV file.');
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'text/csv') {
+                processCSVFile(files[0]);
+            } else {
+                alert('Please drop a valid CSV file.');
+            }
+        }
+
+        function processCSVFile(file) {
+            // Show loading state
+            uploadArea.innerHTML = '<div class="loading"></div><div style="margin-top: 10px;">Processing CSV file...</div>';
+            
+            // Use PapaParse to parse the CSV file
+            Papa.parse(file, {
+                header: true, // Use first row as headers
+                dynamicTyping: true, // Automatically convert types
+                skipEmptyLines: true, // Skip empty rows
+                complete: function(results) {
+                    if (results.errors.length > 0) {
+                        console.error('CSV parsing errors:', results.errors);
+                        showError('Error parsing CSV file. Please check the file format.');
+                        return;
+                    }
+                    
+                    // Process the parsed data and merge with existing data
+                    const newData = processData(results.data);
+                    
+                    if (newData.length === 0) {
+                        showError('No valid data found in CSV file.');
+                        return;
+                    }
+                    
+                    // Merge with existing data
+                    const mergeResult = mergeBloodPressureData(newData);
+                    bloodPressureData = mergeResult.mergedData;
+                    
+                    // Show merge information
+                    showMergeInfo(mergeResult);
+                    
+                    // Update the UI with the merged data
+                    updateUI();
+                },
+                error: function(error) {
+                    console.error('Papa Parse error:', error);
+                    showError('Failed to read CSV file.');
+                }
+            });
+        }
+
+        function processData(rawData) {
+            const processedData = [];
+            
+            rawData.forEach((row, index) => {
+                // Clean up the headers by removing whitespace
+                const cleanRow = {};
+                Object.keys(row).forEach(key => {
+                    const cleanKey = key.trim();
+                    cleanRow[cleanKey] = row[key];
+                });
+                
+                // Parse the date/time string
+                const dateTimeStr = cleanRow['Date/Time'];
+                if (!dateTimeStr) {
+                    console.warn(`Row ${index + 1}: Missing Date/Time`);
+                    return;
+                }
+                
+                // Parse the complex date format: "Nov 09 2024 06:09:00 PM -04:00"
+                const dateTime = parseDateTime(dateTimeStr);
+                if (!dateTime) {
+                    console.warn(`Row ${index + 1}: Invalid Date/Time format: ${dateTimeStr}`);
+                    return;
+                }
+                
+                // Validate and convert numeric values
+                const systolic = parseInt(cleanRow['Systolic']);
+                const diastolic = parseInt(cleanRow['Diastolic']);
+                const pulse = parseInt(cleanRow['Pulse']);
+                
+                if (isNaN(systolic) || isNaN(diastolic) || isNaN(pulse)) {
+                    console.warn(`Row ${index + 1}: Invalid numeric values`);
+                    return;
+                }
+                
+                processedData.push({
+                    dateTime: dateTime,
+                    systolic: systolic,
+                    diastolic: diastolic,
+                    pulse: pulse,
+                    note: cleanRow['Note'] || ''
+                });
+            });
+            
+            // Sort by date and time (newest first)
+            processedData.sort((a, b) => b.dateTime - a.dateTime);
+            
+            return processedData;
+        }
+
+        function parseDateTime(dateTimeStr) {
+            try {
+                // Handle the format: "Nov 09 2024 06:09:00 PM -04:00"
+                // Remove the timezone part for simpler parsing
+                const withoutTimezone = dateTimeStr.replace(/ [-+]\d{2}:\d{2}$/, '');
+                
+                // Parse the date
+                const date = new Date(withoutTimezone);
+                
+                // Check if the date is valid
+                if (isNaN(date.getTime())) {
+                    return null;
+                }
+                
+                return date;
+            } catch (error) {
+                console.error('Date parsing error:', error);
+                return null;
+            }
+        }
+
+        function mergeBloodPressureData(newData) {
+            const originalCount = bloodPressureData.length;
+            
+            // Create a Set of existing timestamps for quick lookup
+            const existingTimestamps = new Set(
+                bloodPressureData.map(reading => reading.dateTime.getTime())
+            );
+            
+            // Filter out duplicate readings based on timestamp
+            const uniqueNewData = newData.filter(reading => 
+                !existingTimestamps.has(reading.dateTime.getTime())
+            );
+            
+            // Combine existing and new unique data
+            const combinedData = [...bloodPressureData, ...uniqueNewData];
+            
+            // Sort by date and time (newest first)
+            combinedData.sort((a, b) => b.dateTime - a.dateTime);
+            
+            return {
+                mergedData: combinedData,
+                originalCount: originalCount,
+                newCount: uniqueNewData.length,
+                duplicatesSkipped: newData.length - uniqueNewData.length,
+                totalCount: combinedData.length
+            };
+        }
+
+        function showMergeInfo(mergeResult) {
+            const { originalCount, newCount, duplicatesSkipped, totalCount } = mergeResult;
+            
+            let infoClass = 'merge-info';
+            let message = '';
+            
+            if (originalCount === 0) {
+                // First import
+                infoClass += ' success';
+                message = `✅ Successfully imported ${newCount} readings.`;
+            } else if (newCount > 0) {
+                // New data merged
+                infoClass += ' success';
+                message = `✅ Merged ${newCount} new readings with ${originalCount} existing records. `;
+                if (duplicatesSkipped > 0) {
+                    message += `${duplicatesSkipped} duplicate readings were skipped. `;
+                }
+                message += `Total: ${totalCount} readings.`;
+            } else {
+                // No new data
+                infoClass += ' warning';
+                message = `⚠️ No new readings found. All ${duplicatesSkipped} readings were already in your dataset.`;
+            }
+            
+            mergeInfo.className = infoClass;
+            mergeDetails.textContent = message;
+            mergeInfo.classList.remove('hidden');
+        }
+
+        function updateUI() {
+            // Show all sections
+            statsSection.classList.remove('hidden');
+            chartSection.classList.remove('hidden');
+            tableSection.classList.remove('hidden');
+            exportSection.classList.remove('hidden');
+            
+            // Update statistics
+            updateStatistics();
+            
+            // Create chart
+            createChart();
+            
+            // Populate table
+            populateTable();
+            
+            // Reset upload area
+            resetUploadArea();
+        }
+
+        function updateStatistics() {
+            const totalReadings = bloodPressureData.length;
+            
+            const avgSystolic = Math.round(
+                bloodPressureData.reduce((sum, reading) => sum + reading.systolic, 0) / totalReadings
+            );
+            
+            const avgDiastolic = Math.round(
+                bloodPressureData.reduce((sum, reading) => sum + reading.diastolic, 0) / totalReadings
+            );
+            
+            const avgPulse = Math.round(
+                bloodPressureData.reduce((sum, reading) => sum + reading.pulse, 0) / totalReadings
+            );
+            
+            // Update the DOM
+            document.getElementById('avgSystolic').textContent = avgSystolic;
+            document.getElementById('avgDiastolic').textContent = avgDiastolic;
+            document.getElementById('avgPulse').textContent = avgPulse;
+            document.getElementById('totalReadings').textContent = totalReadings;
+        }
+
+        function createChart() {
+            const ctx = document.getElementById('bpChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (chart) {
+                chart.destroy();
+            }
+            
+            // Prepare data for chart (reverse order for chronological display)
+            const chartData = [...bloodPressureData].reverse();
+            
+            const labels = chartData.map(reading => 
+                reading.dateTime.toLocaleDateString() + ' ' + 
+                reading.dateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            );
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Systolic',
+                            data: chartData.map(reading => reading.systolic),
+                            borderColor: '#ff6b6b',
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            tension: 0.4,
+                            fill: false
+                        },
+                        {
+                            label: 'Diastolic',
+                            data: chartData.map(reading => reading.diastolic),
+                            borderColor: '#4ecdc4',
+                            backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                            tension: 0.4,
+                            fill: false
+                        },
+                        {
+                            label: 'Pulse',
+                            data: chartData.map(reading => reading.pulse),
+                            borderColor: '#4caf50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            tension: 0.4,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        function populateTable() {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            
+            bloodPressureData.forEach((reading, index) => {
+                const row = tableBody.insertRow();
+                
+                // Format date and time nicely
+                const formattedDateTime = reading.dateTime.toLocaleDateString() + ' ' + 
+                                        reading.dateTime.toLocaleTimeString();
+                
+                row.insertCell(0).textContent = formattedDateTime;
+                row.insertCell(1).textContent = reading.systolic;
+                row.insertCell(2).textContent = reading.diastolic;
+                row.insertCell(3).textContent = reading.pulse;
+                row.insertCell(4).textContent = reading.note;
+                
+                // Add click event to highlight chart point
+                row.addEventListener('click', function() {
+                    highlightChartPoint(index, this);
+                });
+                
+                // Store the original index for chart highlighting
+                row.dataset.originalIndex = index;
+            });
+        }
+
+        function resetUploadArea() {
+            uploadArea.innerHTML = `
+                <i class="material-icons upload-icon">check_circle</i>
+                <div class="upload-text">CSV file loaded successfully!</div>
+                <div class="upload-subtext">Click to upload a different file</div>
+            `;
+            uploadArea.style.borderColor = '#4caf50';
+            uploadArea.style.background = '#f1f8e9';
+        }
+
+        function showError(message) {
+            uploadArea.innerHTML = `
+                <i class="material-icons upload-icon" style="color: #f44336;">error</i>
+                <div class="upload-text" style="color: #f44336;">${message}</div>
+                <div class="upload-subtext">Click to try again</div>
+            `;
+            uploadArea.style.borderColor = '#f44336';
+            uploadArea.style.background = '#ffebee';
+        }
+
+        // Search functionality
+        function searchByDate() {
+            const searchDate = document.getElementById('dateSearch').value;
+            if (!searchDate) {
+                alert('Please select a date to search for.');
+                return;
+            }
+            
+            const searchDateObj = new Date(searchDate);
+            
+            // Find readings that match the selected date
+            const matchingReadings = bloodPressureData.filter(reading => {
+                const readingDate = new Date(reading.dateTime.toDateString());
+                return readingDate.getTime() === searchDateObj.getTime();
+            });
+            
+            if (matchingReadings.length === 0) {
+                alert(`No readings found for ${searchDate}`);
+                return;
+            }
+            
+            // Find the first matching reading's index in the original data
+            const firstMatchIndex = bloodPressureData.findIndex(reading => {
+                const readingDate = new Date(reading.dateTime.toDateString());
+                return readingDate.getTime() === searchDateObj.getTime();
+            });
+            
+            // Highlight the chart point and table row
+            highlightChartPoint(firstMatchIndex, null, true);
+            
+            // Scroll to the chart
+            document.getElementById('chartSection').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }
+
+        function clearSearch() {
+            document.getElementById('dateSearch').value = '';
+            
+            // Clear all highlights
+            if (chart) {
+                chart.setActiveElements([]);
+                chart.update();
+            }
+            
+            // Remove table row highlights
+            const rows = document.querySelectorAll('#tableBody tr');
+            rows.forEach(row => row.classList.remove('highlighted'));
+        }
+
+        function highlightChartPoint(dataIndex, tableRow, scrollToTable = false) {
+            if (!chart) return;
+            
+            // Since chart data is reversed, we need to convert the index
+            const chartIndex = bloodPressureData.length - 1 - dataIndex;
+            
+            // Highlight the point on the chart
+            chart.setActiveElements([
+                { datasetIndex: 0, index: chartIndex },
+                { datasetIndex: 1, index: chartIndex },
+                { datasetIndex: 2, index: chartIndex }
+            ]);
+            chart.update();
+            
+            // Highlight the table row
+            const rows = document.querySelectorAll('#tableBody tr');
+            rows.forEach(row => row.classList.remove('highlighted'));
+            
+            if (tableRow) {
+                tableRow.classList.add('highlighted');
+            } else {
+                // Find the correct row based on data index
+                const targetRow = document.querySelector(`#tableBody tr[data-original-index="${dataIndex}"]`);
+                if (targetRow) {
+                    targetRow.classList.add('highlighted');
+                    
+                    if (scrollToTable) {
+                        setTimeout(() => {
+                            targetRow.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'center' 
+                            });
+                        }, 500);
+                    }
+                }
+            }
+        }
+
+        // Export functionality
+        function exportToCSV() {
+            if (bloodPressureData.length === 0) {
+                alert('No data to export. Please import a CSV file first.');
+                return;
+            }
+            
+            // Create CSV header
+            const csvHeader = 'Systolic,Diastolic,Pulse,Date/Time,Note\n';
+            
+            // Convert data to CSV format (matching the original format)
+            const csvRows = bloodPressureData.map(reading => {
+                // Format date/time to match original format: "Nov 09 2024 06:09:00 PM -04:00"
+                const formattedDateTime = formatDateTimeForCSV(reading.dateTime);
+                
+                return [
+                    reading.systolic,
+                    reading.diastolic,
+                    reading.pulse,
+                    formattedDateTime,
+                    reading.note || ''
+                ].join(',');
+            });
+            
+            // Combine header and data
+            const csvContent = csvHeader + csvRows.join('\n');
+            
+            // Create and download the file
+            downloadCSV(csvContent);
+        }
+
+        function formatDateTimeForCSV(date) {
+            // Format: "Nov 09 2024 06:09:00 PM -04:00"
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const month = months[date.getMonth()];
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 should be 12
+            const formattedHours = String(hours).padStart(2, '0');
+            
+            // Get timezone offset
+            const timezoneOffset = date.getTimezoneOffset();
+            const offsetHours = Math.floor(Math.abs(timezoneOffset) / 60);
+            const offsetMinutes = Math.abs(timezoneOffset) % 60;
+            const offsetSign = timezoneOffset <= 0 ? '+' : '-';
+            const timezone = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+            
+            return `${month} ${day} ${year} ${formattedHours}:${minutes}:${seconds} ${ampm} ${timezone}`;
+        }
+
+        function downloadCSV(csvContent) {
+            // Create blob and download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                // Generate filename with current date
+                const now = new Date();
+                const filename = `blood_pressure_data_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.csv`;
+                
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Show success message
+                showExportSuccess(filename);
+            }
+        }
+
+        function showExportSuccess(filename) {
+            const originalContent = exportSection.innerHTML;
+            exportSection.innerHTML = `
+                <i class="material-icons" style="color: #4caf50;">check_circle</i>
+                <span style="color: #4caf50;">Successfully exported ${filename}!</span>
+                <span style="font-size: 12px; color: #666;">You can now import this file on other devices</span>
+            `;
+            
+            // Reset after 3 seconds
+            setTimeout(() => {
+                exportSection.innerHTML = originalContent;
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
